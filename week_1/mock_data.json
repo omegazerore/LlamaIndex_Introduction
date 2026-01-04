@@ -1,0 +1,25 @@
+{
+  "title": "Titan",
+  "faction": "Adeptus Mechanicus",
+  "category": "God-Engines",
+  "specifications": {
+    "class": "Warlord Titan",
+    "height_meters": 33,
+    "armament": [
+      {
+        "name": "Plasma Annihilator",
+        "type": "Plasma Weapon",
+        "mount": "Carapace"
+      },
+      {
+        "name": "Volcano Cannon",
+        "type": "Laser Weapon",
+        "mount": "Arm"
+      }
+    ]
+  },
+  "history": {
+    "origin": "Age of Strife",
+    "role": "Siege warfare and planetary assault"
+  }
+}
