@@ -4,3 +4,4 @@ llama-index
 jupyterlab
 playwright
 pymupdf
+wikipedia-api
