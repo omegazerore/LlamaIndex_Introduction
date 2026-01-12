@@ -14,3 +14,6 @@ langchain-openai
 simplejson
 unstructured
 unstructured[md]
+faiss-cpu
+ollama
+llama-index-llms-ollama
