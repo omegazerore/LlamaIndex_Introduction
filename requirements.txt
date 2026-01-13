@@ -17,3 +17,4 @@ unstructured[md]
 faiss-cpu
 ollama
 llama-index-llms-ollama
+mlflow
