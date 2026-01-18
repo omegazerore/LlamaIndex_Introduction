@@ -19,3 +19,5 @@ ollama
 llama-index-llms-ollama
 mlflow
 pyvis
+tree-sitter
+tree_sitter_language_pack
