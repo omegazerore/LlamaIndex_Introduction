@@ -1,155 +1,168 @@
-# LlamaIndex 實戰：Re-Rank、Hybrid Retrieval 與 Retrieval Orchestration (Week 3)
+# LlamaIndex 進階檢索策略與多模態 RAG（Week 3）
 
-本專案延續前一週的可持久化 RAG 架構，進一步聚焦在 **「當向量搜尋已不足以支撐高品質檢索時，我們該怎麼做？」**  
-Week 3 的核心主題是：**進階檢索品質優化（Retrieval Quality Optimization）**。
+本專案紀錄 **LlamaIndex 在進階檢索（Advanced Retrieval）與 Query Transformation** 上的實戰應用，涵蓋從 **文件級摘要索引（DocumentSummaryIndex）**、**HyDE / Multi-step Query Transform**，一路延伸到 **Pandas Query Engine** 與 **多模態（Multi-modal）RAG** 的完整實作。
 
-內容涵蓋 **Re-Ranking、Hybrid Retrieval（BM25 + Dense）、Query Fusion、以及 Retrieval Orchestration**，完整呈現從「找得到」走向「找得準」的工程演進路徑。
+本週重點不只是「功能展示」，而是聚焦在 **檢索邏輯設計、LLM 角色分工，以及在真實系統中如何避免 Context Explosion 與語意錯配問題**。
 
 ---
 
 ## 📅 更新資訊
-- **初版日期**：2026.01.07
-- **筆記版本**：v1.0.0
-- **Notebook**：`week_3.ipynb`（First Release）
+
+- **初版日期**：2026.01.25  
+- **筆記版本**：v1.0.0  
+- **教學週次**：Week 3  
+- **Notebook**：`notebook.ipynb`
 
 ---
 
-## 🚀 核心重點
+## 🚀 核心主題概覽
 
-### 1. Re-Ranking：讓「前幾名」真的有意義
-向量搜尋解決的是 **Recall**，但在實務系統中，**Precision 才是使用者體驗的關鍵**。
+### 1. DocumentSummaryIndex：以簡馭繁的文件級檢索
 
-本章深入比較三種主流 Re-Rank 策略：
+**DocumentSummaryIndex 的設計哲學：**
 
-#### 🔹 FlagEmbeddingReranker（Local, Cross-Encoder）
-- 使用 **BAAI/bge-reranker-large**
-- 採用 **Cross-Encoder 架構**，同時讀取 Query + Document
+> 不先檢索 Chunk，而是先理解「整份文件在說什麼」。
+
+- 透過 LLM 為**每一份文件生成摘要（Summary Node）**
+- 查詢時先比對摘要，再回傳該文件下的所有節點
+- 從「全局理解」導向「局部細節」，避免單一 Chunk 斷章取義
+
+**與 Recursive Retrieval 的差異：**
+
+- DocumentSummaryIndex 是 **索引類型**
+- Recursive Retrieval 是 **檢索邏輯**
+- 兩者可獨立使用，也能互補搭配
+
+---
+
+### 2. Retriever 設計：Document-level 的 similarity_top_k 思維
+
+- `similarity_top_k` 在這裡代表的是 **文件數量，而非 Chunk 數**
+- 一旦文件命中，該文件下的所有 Nodes 都會被拉取
+- 優點：上下文完整  
+- 風險：文件過長會導致 **Context Window 爆炸**
+
+**實務建議：**
+- 搭配 `response_mode="tree_summarize"`
+- 適合中小量文件，不適合超大型單文件
+
+---
+
+### 3. Query Transformations：把「問問題」變成「設計查詢流程」
+
+LlamaIndex 允許在檢索前、檢索中、甚至檢索後進行 **Query Transformation**：
+
+**常見使用情境**
+- 將問題轉成更適合向量搜尋的形式（HyDE）
+- 將複雜問題拆解為子問題（Step Decompose）
+- 多步推理，逐層縮小搜尋空間
+
+---
+
+### 4. HyDE（Hypothetical Document Embeddings）
+
+HyDE 的核心不是「猜答案」，而是：
+
+> **用「答案的形式」去搜尋「答案」**
+
+解決傳統 RAG 中常見的問題：
+- Query 太短
+- 文件太長
+- 向量語義不對齊（Query–Document Asymmetry）
+
+**優點**
+- 顯著提升語意檢索品質
+- 對開放式問題特別有效
+
+**限制**
+- 額外 LLM 成本
+- 不適合精確事實查詢（數值、年份）
+
+---
+
+### 5. Recursive Retriever × HyDE / SDQT（多層檢索架構）
+
+本週示範多種組合策略：
+
+- **HyDE + RecursiveRetriever**
+- **StepDecomposeQueryTransform + RecursiveRetriever**
+
+典型結構：
+1. 上層：摘要節點（Summary / IndexNode）
+2. 下層：全文向量索引
+3. Query 先在摘要層過濾，再深入全文層精檢索
+
+這種設計有效解決：
+- 文件量大
+- 主題分散
+- LLM 容易迷失重點的問題
+
+---
+
+### 6. Pandas Query Engine：讓 LLM 直接「操作資料」
+
+- 使用 LLM 將自然語言轉換為 Pandas 可執行的 Python 表達式
 - 適合：
-  - 本地 GPU
-  - 高隱私需求
-  - 不希望承擔 API 成本的場景
-- 核心取捨：
-  - 精度極高
-  - 僅適合 rerank Top-K（10–50 筆）
+  - 數據分析
+  - 內部報表查詢
+  - 結構化資料問答
 
-#### 🔹 RankGPT（LLM Listwise Reranking）
-- 使用 LLM 進行 **列表式重排序**
-- 能理解語意細節、邏輯與使用者意圖
-- 定位為：
-  - **Final Polish**
-  - 高價值查詢的最後一道品質關卡
-- 代價：
-  - 高 Token 成本
-  - 較高延遲
-
-#### 🔹 Cohere Rerank v4（託管型）
-- 企業級重排序方案
-- 關鍵優勢：
-  - 32k Context
-  - 多語言 / 跨語言
-  - 結構化資料排序
-- 提供 Pro / Fast 雙版本，平衡成本與效能
-
-📌 **核心觀念**  
-> Re-Rank 不是萬靈丹，它只對「已經找對方向的候選結果」有效。
+⚠️ **安全提醒**
+- 內部使用 `eval()`
+- 僅適合沙盒或受信任環境
+- 不建議直接用於 Production 對外服務
 
 ---
 
-### 2. 為什麼需要 Hybrid Retrieval？
-如果 **第一階段就找錯文件**，Re-Rank 再強也無能為力。
+### 7. Recursive Retriever × Pandas Query Engine（進階示範）
 
-因此本章正式引入 **Hybrid Retrieval（混合式檢索）**：
-
-- **BM25（Sparse Retrieval）**
-  - 精確關鍵字
-  - 專有名詞、數字、人名表現極佳
-- **FAISS（Dense Retrieval）**
-  - 語意理解
-  - 同義改寫、模糊問題更強
-
-👉 真實世界查詢 **幾乎永遠同時需要兩者**
+- 向量索引只負責「找對資料來源」
+- 命中後將 Query 轉交給對應的 Pandas Query Engine
+- 實現 **文件檢索 + 表格計算** 的混合式 RAG 架構
 
 ---
 
-### 3. BM25 Retriever：回歸 IR 基礎，但不是退步
-本章以 **英文 Wikipedia（Tech Companies）** 作為示範資料集，專注於 BM25 本身的機制：
+### 8. Multi-modal RAG：文字 × 圖片的語義對齊
 
-- 從 Node 直接建立 BM25Retriever
-- 使用 DocStore（可替換為 MongoDB / Redis）
+- 使用 **Qdrant** 作為 Text / Image 雙向量儲存
+- 引入 **CLIP / Jina CLIP / AltCLIP**
 - 支援：
-  - Stopword Removal
-  - Stemming
-  - Metadata Filtering
+  - Text → Image
+  - Image → Image
+  - Text + Image 聯合檢索
 
-📌 特別說明：  
-> 中文 BM25 需要高度客製化斷詞，本週刻意避開實作細節，專注在檢索架構設計。
+核心理解：
 
----
-
-### 4. Hybrid Retriever（BM25 + FAISS）
-正式組合 Sparse + Dense Retrieval：
-
-- 同時執行：
-  - 向量搜尋（FAISS）
-  - 關鍵字搜尋（BM25）
-- 使用 **QueryFusionRetriever** 進行結果整合
-- 支援多種融合策略：
-  - **Reciprocal Rank Fusion（RRF，預設）**
-  - Relative Score Fusion
-  - Distribution-Based Fusion
-  - Simple Fusion
-
-📌 核心工程價值：
-- 提升 Recall
-- 降低單一檢索策略的盲點
-- 提供更穩定的排序結果
+> **CLIP 不是在辨識圖片，而是在對齊語義空間。**
 
 ---
 
-### 5. RAG-Fusion：用多個 Query 對抗語意不確定性
-QueryFusionRetriever 不只是「合併結果」，而是完整實現 **RAG-Fusion** 思想：
+### 9. Image Query Engine：圖像檢索 × LLM 合成
 
-- 由 LLM 自動產生多個 Query Rewrite
-- 從不同語意角度檢索資料
-- 使用 RRF 降低排序偏差
-
-📌 關鍵設計理念：  
-> 使用者的 Query 幾乎永遠是不完整的。
-
----
-
-### 6. SummaryIndex + IndexNode：Retrieval Orchestration
-本章進入 **檢索編排（Orchestration）層級**，而非單一檢索器：
-
-- 使用 `IndexNode` 包裝：
-  - Vector Retriever
-  - BM25 Retriever
-- 使用 `SummaryIndex` 作為 **Router / Orchestrator**
-- 讓 LLM 同時接收多種檢索策略的上下文並進行綜合回答
-
-📌 SummaryIndex 的正確定位：
-- ✅ 少量高階工具的編排器
-- ❌ 大量文檔的儲存索引
-
----
-
-## 🧠 核心設計原則（Takeaways）
-- **Re-Rank 是 Precision 工具，不是 Recall 工具**
-- **Hybrid Retrieval 是實務系統的標配，而非進階選項**
-- **Query 不可信，必須被擴寫與融合**
-- **SummaryIndex 是「將領」，不是「士兵」**
-- Retrieval 是一個 **Pipeline，而非單一步驟**
+- Retriever：找出最相關圖片
+- Query Engine：
+  - 組合 Prompt
+  - 將圖片與文字一併送入多模態 LLM（如 qwen3-vl）
+- 實現 Image-based QA 與內容生成
 
 ---
 
 ## 🛠️ 技術棧
-- **Framework**：LlamaIndex
-- **Vector Store**：FAISS
-- **Sparse Retrieval**：BM25
-- **Embedding Models**：HuggingFace (`BAAI/bge-m3`)
-- **Re-Ranker**：
-  - BGE Reranker
-  - RankGPT
-  - Cohere Rerank v4
-- **LLM**：OpenAI (`gpt-4o-mini`)
-- **Language**：Python
+
+- **Framework**：LlamaIndex  
+- **Vector DB**：FAISS、Qdrant  
+- **LLM**：Ollama（gpt-oss:120b、qwen3-vl）、OpenAI gpt-4o  
+- **Embedding**：
+  - BAAI/bge-m3
+  - OpenAI CLIP
+  - jinaai/jina-clip-v2
+  - BAAI/AltCLIP  
+
+---
+
+## 🎯 教學核心精神
+
+> **花錢來上課，就應該學到其他地方學不到的東西。**
+
+這一週的重點不是「API 怎麼用」，  
+而是 **如何設計一個不會隨資料規模崩壞的檢索系統**。
