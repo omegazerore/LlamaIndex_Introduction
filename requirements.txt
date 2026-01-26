@@ -21,3 +21,9 @@ mlflow
 pyvis
 tree-sitter
 tree_sitter_language_pack
+qdrant_client
+llama-index-vector-stores-qdrant
+llama-index-callbacks-arize-phoenix
+llama-index-experimental
+llama-index-embeddings-clip
+arize-phoenix

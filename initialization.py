@@ -21,12 +21,6 @@ def credential_init():
     [openai]
     api_key = your_openai_api_key
 
-    [SERPER_API_KEY]
-    api_key = your_serper_api_key
-
-    [TAVILY_API_KEY]
-    api_key = your_tavily_api_key
-
     Raises:
         KeyError: If any of the required sections or keys are missing in the configuration file.
         FileNotFoundError: If the 'credentials.ini' file is not found in the specified directory.
@@ -47,3 +41,4 @@ def credential_init():
     os.environ['OPENAI_API_KEY'] = credentials['openai'].get('api_key')
     os.environ['HuggingFace_API_KEY'] = credentials['HuggingFace_API_KEY'].get('api_key')
     os.environ["OLLAMA_API_KEY"] = credentials['ollama'].get('api_key')
+    os.environ["COHERE_API_KEY"] = credentials['cohere'].get('api_key')
