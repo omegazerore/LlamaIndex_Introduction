@@ -1,4 +1,4 @@
-# LlamaIndex 實戰：Re-Rank、Hybrid Retrieval 與 Retrieval Orchestration (Week 3)
+# LlamaIndex 實戰：Advanced Re-Rank & Chinese Hybrid Retrieval (Week 4)
 
 本專案正式進入 Week 4：進階檢索策略與多語言優化。
 延續可持久化的 RAG 架構，重點解決中文環境中最棘手的「斷詞與精準檢索」問題，並正式導入多層級 Re-Rank（重排序）管線，以提升整體 Retrieval Precision 與 LLM Context 品質。
