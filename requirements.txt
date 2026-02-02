@@ -27,3 +27,5 @@ llama-index-callbacks-arize-phoenix
 llama-index-experimental
 llama-index-embeddings-clip
 arize-phoenix
+opencc-python-reimplemented
+unstructured
